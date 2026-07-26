@@ -1,0 +1,124 @@
+name: Build Redmi AC2100 Padavan Lite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout overlays
+        uses: actions/checkout@v4
+
+      - name: Validate lite config
+        run: python3 scripts/check_lite_config.py
+
+  build:
+    needs: check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout overlays
+        uses: actions/checkout@v4
+
+      - name: Prepare Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libtool-bin curl cmake gperf gawk flex bison \
+            nano xxd fakeroot kmod cpio git-doc vim-common \
+            libncurses5-dev libncurses5 \
+            python3-docutils autopoint texinfo
+          sudo apt-get clean
+
+      - name: Build firmware
+        run: |
+          set -euo pipefail
+          WORK_DIR="${GITHUB_WORKSPACE}/padavan"
+          OVERLAY_CFG="${GITHUB_WORKSPACE}/configs/RM2100.config"
+          OVERLAY_OC="${GITHUB_WORKSPACE}/configs/kernel-oc.fragment"
+          TARGET_DEVICE="RM2100"
+          CURRENT_DATE="$(date +%Y%m%d)"
+          echo "DATE=${CURRENT_DATE}" >> "${GITHUB_ENV}"
+          echo "BUILD_VER=4.4-oc1000-lite" >> "${GITHUB_ENV}"
+
+          echo "Cloning MeIsReallyBa/padavan-4.4..."
+          git clone --depth=1 --branch main \
+            https://github.com/MeIsReallyBa/padavan-4.4.git \
+            "${WORK_DIR}"
+
+          echo "Preparing toolchain..."
+          cd "${WORK_DIR}/toolchain-mipsel"
+          sh dl_toolchain.sh
+
+          TEMPLATE_PATH="${WORK_DIR}/trunk/configs/templates/${TARGET_DEVICE}.config"
+          KERNEL_CFG="${WORK_DIR}/trunk/configs/boards/${TARGET_DEVICE}/kernel-4.4.x.config"
+
+          test -f "${TEMPLATE_PATH}" || { echo "missing template ${TEMPLATE_PATH}"; exit 1; }
+          test -f "${KERNEL_CFG}" || { echo "missing kernel cfg ${KERNEL_CFG}"; exit 1; }
+          test -f "${OVERLAY_CFG}" || { echo "missing overlay ${OVERLAY_CFG}"; exit 1; }
+          test -f "${OVERLAY_OC}" || { echo "missing OC fragment ${OVERLAY_OC}"; exit 1; }
+
+          echo "Applying userspace overlay..."
+          cp -f "${OVERLAY_CFG}" "${TEMPLATE_PATH}"
+
+          echo "Merging kernel OC fragment..."
+          # drop prior OC keys then append fragment
+          sed -i \
+            -e '/^CONFIG_MT7621_OC=/d' \
+            -e '/^# CONFIG_MT7621_OC is not set/d' \
+            -e '/^CONFIG_MT7621_CPU_FREQ=/d' \
+            "${KERNEL_CFG}"
+          cat "${OVERLAY_OC}" >> "${KERNEL_CFG}"
+          grep -E 'CONFIG_MT7621_OC|CONFIG_MT7621_CPU_FREQ' "${KERNEL_CFG}"
+
+          # optional: Flow Offload symbol if tree defines it in template schema
+          if grep -q 'CONFIG_FIRMWARE_ENABLE_FLOWOFFLOAD' "${TEMPLATE_PATH}" 2>/dev/null; then
+            sed -i 's/CONFIG_FIRMWARE_ENABLE_FLOWOFFLOAD=n/CONFIG_FIRMWARE_ENABLE_FLOWOFFLOAD=y/g' "${TEMPLATE_PATH}"
+          fi
+
+          cd "${WORK_DIR}/trunk"
+          cp -f "${TEMPLATE_PATH}" .config
+          test -f .config
+
+          echo "Starting build for ${TARGET_DEVICE}..."
+          fakeroot ./build_firmware "${TARGET_DEVICE}"
+
+          ls -la images/ || true
+          test -n "$(ls images/*.trx 2>/dev/null)" || { echo "no trx produced"; exit 1; }
+
+      - name: Organize Artifacts
+        run: |
+          mkdir -p ./output_firmware
+          cp "${GITHUB_WORKSPACE}/padavan/trunk/images/"*.trx ./output_firmware/
+          ls -la ./output_firmware
+          echo "FIRMWARE_PATH=./output_firmware" >> "${GITHUB_ENV}"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RM2100-padavan-4.4-oc1000-lite-${{ env.DATE }}
+          path: ${{ env.FIRMWARE_PATH }}/*.trx
+          if-no-files-found: error
+
+      - name: Upload Firmware to Releases
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v${{ env.DATE }}-${{ env.BUILD_VER }}
+          name: Redmi AC2100 Padavan ${{ env.BUILD_VER }} (${{ env.DATE }})
+          body: |
+            Auto-built lite firmware
+
+            - Device: Redmi AC2100 (RM2100)
+            - Tree: MeIsReallyBa/padavan-4.4 (linux-4.4.x)
+            - CPU: OC ~1000 MHz (`CONFIG_MT7621_OC`, MPLL `0x312`)
+            - Accel: SFE enabled
+            - Features: pure router + IPv6
+            - Removed: SSH, USB, downloaders, VPN/proxy plugins, debug tools
+            - Flash via Breed; OC may be unstable — keep a recovery image
+          files: ${{ env.FIRMWARE_PATH }}/*.trx
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

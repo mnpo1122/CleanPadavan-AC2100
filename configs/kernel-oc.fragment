@@ -1,0 +1,5 @@
+# MT7621 mild OC ~1000MHz (MPLL hex for CONFIG_MT7621_CPU_FREQ)
+# Applied into configs/boards/RM2100/kernel-4.4.x.config at build time.
+# Verify on device: dmesg | grep "CPU Clock"
+CONFIG_MT7621_OC=y
+CONFIG_MT7621_CPU_FREQ="0x312"
