@@ -104,7 +104,7 @@ jobs:
       - name: Download sources
         run: |
           cd immortalwrt-src
-          make download -j1 V=s
+          make download -j8 V=s
           test -x staging_dir/host/bin/ninja
           find staging_dir/toolchain-* -type f -name '*-gcc' -executable -print -quit | grep .
 
