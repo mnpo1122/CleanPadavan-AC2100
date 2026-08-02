@@ -54,8 +54,6 @@ jobs:
             https://github.com/immortalwrt/immortalwrt.git \
             "$GITHUB_WORKSPACE/immortalwrt-src"
           cd immortalwrt-src
-          git fetch --depth=1 origin ae202f7f9018715c2ac3cc968e3962ced617ee2f
-          git checkout --detach ae202f7f9018715c2ac3cc968e3962ced617ee2f
           echo "IW_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "IW_SHORT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
