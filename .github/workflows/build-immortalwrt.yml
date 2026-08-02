@@ -93,6 +93,14 @@ jobs:
           cd immortalwrt-src
           make target/linux/prepare V=s
 
+      - name: Pre-download musl from Buildroot mirror
+        run: |
+          cd immortalwrt-src
+          curl --fail --retry 5 --retry-all-errors --connect-timeout 20 \
+            -L https://sources.buildroot.net/musl/musl-1.2.6.tar.gz \
+            -o dl/musl-1.2.6.tar.gz
+          echo 'd585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a  dl/musl-1.2.6.tar.gz' | sha256sum -c -
+
       - name: Download sources
         run: |
           cd immortalwrt-src
