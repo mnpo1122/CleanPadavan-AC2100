@@ -54,9 +54,10 @@ jobs:
             https://github.com/immortalwrt/immortalwrt.git \
             "$GITHUB_WORKSPACE/immortalwrt-src"
           cd immortalwrt-src
+          git fetch --depth=1 origin ae202f7f9018715c2ac3cc968e3962ced617ee2f
+          git checkout --detach ae202f7f9018715c2ac3cc968e3962ced617ee2f
           echo "IW_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "IW_SHORT=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          cat .config 2>/dev/null || true
 
       - name: Verify upstream
         run: python3 immortalwrt/scripts/inspect-upstream.py immortalwrt-src
@@ -74,24 +75,36 @@ jobs:
           sed -i "s/__COUNTRY__/${{ inputs.country }}/g" \
             etc/uci-defaults/99-rm2100-performance
 
-      - name: Update and install feeds
+      - name: Update LuCI feed only
         run: |
           cd immortalwrt-src
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          ./scripts/feeds update luci
+          ./scripts/feeds install -a -p luci
 
       - name: Select RM2100 profile
         run: |
           cd immortalwrt-src
-          sed -i 's/^.*CONFIG_TARGET_ramips.*//g' .config 2>/dev/null || true
-          cat "$GITHUB_WORKSPACE/immortalwrt/configs/rm2100-minimal.seed" >> .config
+          cp "$GITHUB_WORKSPACE/immortalwrt/configs/rm2100-minimal.seed" .config
           make defconfig
+          grep -q '^CONFIG_TARGET_ramips_mt7621_DEVICE_xiaomi_redmi-router-ac2100=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-tcp-bbr=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-nft-fullcone=y$' .config
+
+      - name: Validate and prepare kernel patch
+        run: |
+          cd immortalwrt-src
+          make target/linux/prepare V=s
 
       - name: Download sources
-        run: cd immortalwrt-src && make download -j$(nproc) V=s
+        run: |
+          cd immortalwrt-src
+          make download -j1 V=s
+          test -x staging_dir/host/bin/ninja
+          find staging_dir/toolchain-* -type f -name '*-gcc' -executable -print -quit | grep .
 
       - name: Build firmware
         run: cd immortalwrt-src && make -j$(nproc) V=s
+
 
       - name: Collect images
         run: |

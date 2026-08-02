@@ -1,6 +1,6 @@
 --- a/drivers/clk/ralink/clk-mt7621.c
 +++ b/drivers/clk/ralink/clk-mt7621.c
-@@ -36,6 +36,39 @@
+@@ -36,6 +36,35 @@
  	struct regmap *sysc;
  	struct regmap *memc;
  };
@@ -20,9 +20,7 @@
 +	prediv = FIELD_GET(CPU_PLL_PREDIV_MASK, pll_val);
 +	fbdiv = FIELD_GET(CPU_PLL_FBDIV_MASK, pll_val);
 +	est = ((fbdiv + 1) * xtal) >> prediv_tbl[prediv];
-+	pr_info("mt7621-oc: PLL before=0x%08x xtal=%luMHz cpu=%luMHz
-+",
-+		pll_val, xtal / 1000000, est / 1000000);
++	pr_info("mt7621-oc: PLL before=0x%08x cpu=%luMHz", pll_val, est / 1000000);
 +
 +	/* 1000MHz = (FBDIV + 1) * xtal >> prediv_tbl[prediv]. */
 +	fbdiv = (1000000000UL << prediv_tbl[prediv]) / xtal - 1;
@@ -33,14 +31,12 @@
 +	regmap_read(priv->memc, MEMC_REG_CPU_PLL, &pll_val);
 +	fbdiv = FIELD_GET(CPU_PLL_FBDIV_MASK, pll_val);
 +	est = ((fbdiv + 1) * xtal) >> prediv_tbl[prediv];
-+	pr_info("mt7621-oc: PLL after=0x%08x cpu=%luMHz
-+",
-+		pll_val, est / 1000000);
++	pr_info("mt7621-oc: PLL after=0x%08x cpu=%luMHz", pll_val, est / 1000000);
 +}
  
  struct mt7621_clk {
  	struct clk_hw hw;
-@@ -370,6 +403,8 @@
+@@ -370,6 +399,8 @@
  		goto free_clk_priv;
  	}
  
