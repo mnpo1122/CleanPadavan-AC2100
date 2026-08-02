@@ -3,9 +3,9 @@
 Recorded: 2026-08-02
 
 - Source: `https://github.com/immortalwrt/immortalwrt`
-- Branch: `master`
-- Inspected commit: `ae202f7f9018715c2ac3cc968e3962ced617ee2f`
-- Ramips kernel patch version: `6.18`
+- Release: `v25.12.1`
+- Build source: `v25.12.1` tag
+- Ramips kernel patch version: `6.12`
 - Board: `xiaomi,redmi-router-ac2100`
 - Image profile: `xiaomi_redmi-router-ac2100`
 - WAN logical device: `wan`
