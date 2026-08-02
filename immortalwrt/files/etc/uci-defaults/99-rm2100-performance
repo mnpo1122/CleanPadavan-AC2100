@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Keep board-generated DSA devices; only change protocol and performance options.
+uci set network.wan.proto='dhcp'
+uci set network.wan6.proto='dhcpv6'
+uci set network.wan6.reqaddress='try'
+uci set network.wan6.reqprefix='auto'
+
+uci set firewall.@defaults[0].flow_offloading='1'
+uci set firewall.@defaults[0].flow_offloading_hw='0'
+uci set firewall.@defaults[0].fullcone='1'
+uci set firewall.@defaults[0].fullcone6='0'
+
+for radio in $(uci show wireless | sed -n "s/^wireless\.\([^=]*\)=wifi-device$/\1/p"); do
+	uci set wireless."$radio".country='__COUNTRY__'
+	uci set wireless."$radio".wmm='1'
+	done
+
+for radio in $(uci show wireless | sed -n "s/^wireless\.\([^=]*\)=wifi-device$/\1/p"); do
+	band=$(uci get wireless."$radio".band 2>/dev/null)
+	case "$band" in
+		2g) uci set wireless."$radio".htmode='HT20' ;;
+		5g) uci set wireless."$radio".htmode='VHT80' ;;
+	esac
+done
+
+uci commit network
+uci commit firewall
+uci commit wireless
+exit 0
