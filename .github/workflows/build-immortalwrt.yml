@@ -73,10 +73,12 @@ jobs:
           sed -i "s/__COUNTRY__/${{ inputs.country }}/g" \
             etc/uci-defaults/99-rm2100-performance
 
-      - name: Update LuCI feed only
+      - name: Install required LuCI feeds
         run: |
           cd immortalwrt-src
-          ./scripts/feeds update luci
+          ./scripts/feeds update packages luci
+          ./scripts/feeds install cgi-io
+          test -f package/feeds/packages/cgi-io/Makefile
           ./scripts/feeds install -a -p luci
 
       - name: Select RM2100 profile
